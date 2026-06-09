@@ -3,17 +3,18 @@ use crate::mgf1::mgf1;
 use crate::mgf1::calculate_digest;
 
 pub struct EMSAPSS {
-  em_len: usize
+  em_bits: usize
 }
 
 impl EMSAPSS {
-  pub fn new (em_len: usize) -> Self {
+  pub fn new (em_bits: usize) -> Self {
     Self {
-      em_len,
+      em_bits,
     }
   }
 
   pub fn encode(&self, message: &[u8], salt: &[u8]) -> Vec<u8>{
+    let em_len = self.em_bits.div_ceil(8);
     let mut m_hash = [0u8; 48];
     calculate_digest::<Sha3_384>(&[message], &mut m_hash);
 
@@ -23,7 +24,7 @@ impl EMSAPSS {
         &mut m_prime_hash
     );
 
-    let db_len = self.em_len - m_hash.len() - 1;
+    let db_len = em_len - m_hash.len() - 1;
     let mut db: Vec<u8> = vec![0u8; db_len];
     let ps_len: usize = db_len - salt.len() - 1;
     db[ps_len] = 0x01;
@@ -33,8 +34,8 @@ impl EMSAPSS {
     for (db_byte, mask_byte) in db.iter_mut().zip(mask.iter()) {
       *db_byte ^= mask_byte;
     }
-    db[0] = db[0] & 0x7F;
-    let mut em = Vec::with_capacity(self.em_len);
+    db[0] &= 0xff >> (8 * em_len - self.em_bits);
+    let mut em = Vec::with_capacity(em_len);
     em.extend_from_slice(&db);
     em.extend_from_slice(&m_prime_hash);
     em.push(0xbc);
