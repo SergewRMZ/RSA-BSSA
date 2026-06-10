@@ -1,11 +1,12 @@
-use sha3::{Digest, Sha3_384};
+use sha2::{Digest, Sha384};
 
-pub fn mgf1(mask_seed: &[u8], mask_len: usize) -> Vec<u8>{
+
+pub fn mgf1<D: Digest>(mask_seed: &[u8], mask_len: usize, ) -> Vec<u8>{
   let mut counter:u32 = 0;
   let mut output: Vec<u8> = Vec::with_capacity(mask_len);
 
   while output.len() < mask_len {
-    let mut hasher = Sha3_384::new();
+    let mut hasher = D::new();
     hasher.update(mask_seed);
     hasher.update(counter.to_be_bytes());
     let digest = hasher.finalize();
