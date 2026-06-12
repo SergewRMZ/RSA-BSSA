@@ -1,6 +1,4 @@
-use sha2::{Digest, Sha384};
-
-
+use sha2::{Digest};
 pub fn mgf1<D: Digest>(mask_seed: &[u8], mask_len: usize, ) -> Vec<u8>{
   let mut counter:u32 = 0;
   let mut output: Vec<u8> = Vec::with_capacity(mask_len);
