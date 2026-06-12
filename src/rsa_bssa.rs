@@ -3,8 +3,6 @@ use crypto_bigint::{BoxedUint, CtOption, NonZero, RandomMod};
 use rsa::rand_core::CryptoRng;
 use rsa::traits::PublicKeyParts;
 
-use crate::emsa_pss::EMSAPSSError::EncodingError;
-
 pub fn prepare<Rng: CryptoRng + ?Sized>(message: &[u8], rng: &mut Rng) -> Vec<u8> {
   const SALT_LEN: usize = 48;
   let mut salt = [0u8; 48];
