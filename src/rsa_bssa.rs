@@ -1,6 +1,9 @@
-use crypto_bigint::{NonZero, RandomMod, BoxedUint};
+use crypto_bigint::modular::BoxedMontyForm;
+use crypto_bigint::{BoxedUint, CtOption, NonZero, RandomMod};
 use rsa::rand_core::CryptoRng;
 use rsa::traits::PublicKeyParts;
+
+use crate::emsa_pss::EMSAPSSError::EncodingError;
 
 pub fn prepare<Rng: CryptoRng + ?Sized>(message: &[u8], rng: &mut Rng) -> Vec<u8> {
   const SALT_LEN: usize = 48;
@@ -13,14 +16,38 @@ pub fn prepare<Rng: CryptoRng + ?Sized>(message: &[u8], rng: &mut Rng) -> Vec<u8
   prepared
 }
 
-
 pub fn blind<Rng: CryptoRng + ?Sized, PK: PublicKeyParts>(
+  encoded_message: BoxedUint,
   rng: &mut Rng, 
-  public_key: &PK) {
-  
-  let n = public_key.n();
-  
-  println!("Módulo n: {}", n);
+  pk: &PK) {
+
+  let n: &NonZero<BoxedUint> = pk.n();
+  let e: &BoxedUint = pk.e();
+  let n_bits = pk.n_bits_precision();
+
+  let mut r: BoxedUint;
+  let r_inv: BoxedUint;
+
+  loop {
+    r = BoxedUint::random_mod_vartime(rng, n);
+
+    if r.is_zero().into() {
+      r = BoxedUint::one_with_precision(n_bits);
+    }
+
+    let unblinder: CtOption<BoxedUint> = r.invert_mod(n);
+    
+    if let Some(valido) = unblinder.into_option() {
+      r_inv = valido;
+      break;
+    }
+  }
+
+  let blind_factor = BoxedMontyForm::new(r, pk.n_params()).pow(pk.e());
+  let em_monty = BoxedMontyForm::new(encoded_message, pk.n_params());
+
+  let blinded_message = em_monty.mul(&blind_factor).retrieve();
+  println!("Blinded Message: {:?}", blinded_message);
 }
 
 #[cfg(test)]
@@ -47,12 +74,11 @@ mod tests {
 
     let e = BoxedUint::from(65537u32);
 
-    let encoded_message = "2be01c5669eb676cb3f0002eb636427d61568f3f0579da5b998279a7eb3ab784e5617319376d04809d83e72bef9f0738e7324af3fd1b4f0a35f4f58058ab329495406bdb5ff31a0274be2d137c735ab0d5a591b3129a6cc46fcecc4b41dbc684c965cb30e3eb4864ef18cc8d95b4d6a2002607c821d4d8a7e026ae7bb1f6b4c7c93d1b58e9cd87864d6094b0d8f7e2b5f966473703634fb58c774dd4a24376e0eb262a24b58e3a0b4da4f36ef75651627561ff2ecee9dcbfe1d728cc31a7b46030f7a2815ae9edf9a2a5c0c6d8dbab1b33b9c3bbda5c083670a3550f7d74c4263aad09f8ed1d435fc6295ca4d51fc02c7de9ae28ffd53372c3fa864521b27560daa11ab9daad8d0d747661718d2f79c59d0661b09c74863fa32bdcb1c408d3bd24569c57aecae6e06c0c9deb7303c5b7b1240960fd2413d61b2e3829af8c09874fdba0fe84ca6aa7e7d533f9b0ddfe508f562b132ca2d325f1e73f91a8a6b831a2fd9bc0bd5bfa5ea3a1dee16bd9b264174b9553a4c0c0d62373353355c05b35824e4bae702f49e5a6bf83eaff65af499045bcef1470a0e58ddb21856034af0db96f8636d4a6f1591f34c7224e0c0293e3d3be2139f2797c5ed8b65473ac2f83c52b87f8cf8754ac2f55f5e41e105df1d079a647fb1aa591526295667f37db1129752d024eb03bfe506a43665072118423351ef9b8663376f9fc073141e1e7bc";
+    let encoded_message = BoxedUint::from_be_hex("2be01c5669eb676cb3f0002eb636427d61568f3f0579da5b998279a7eb3ab784e5617319376d04809d83e72bef9f0738e7324af3fd1b4f0a35f4f58058ab329495406bdb5ff31a0274be2d137c735ab0d5a591b3129a6cc46fcecc4b41dbc684c965cb30e3eb4864ef18cc8d95b4d6a2002607c821d4d8a7e026ae7bb1f6b4c7c93d1b58e9cd87864d6094b0d8f7e2b5f966473703634fb58c774dd4a24376e0eb262a24b58e3a0b4da4f36ef75651627561ff2ecee9dcbfe1d728cc31a7b46030f7a2815ae9edf9a2a5c0c6d8dbab1b33b9c3bbda5c083670a3550f7d74c4263aad09f8ed1d435fc6295ca4d51fc02c7de9ae28ffd53372c3fa864521b27560daa11ab9daad8d0d747661718d2f79c59d0661b09c74863fa32bdcb1c408d3bd24569c57aecae6e06c0c9deb7303c5b7b1240960fd2413d61b2e3829af8c09874fdba0fe84ca6aa7e7d533f9b0ddfe508f562b132ca2d325f1e73f91a8a6b831a2fd9bc0bd5bfa5ea3a1dee16bd9b264174b9553a4c0c0d62373353355c05b35824e4bae702f49e5a6bf83eaff65af499045bcef1470a0e58ddb21856034af0db96f8636d4a6f1591f34c7224e0c0293e3d3be2139f2797c5ed8b65473ac2f83c52b87f8cf8754ac2f55f5e41e105df1d079a647fb1aa591526295667f37db1129752d024eb03bfe506a43665072118423351ef9b8663376f9fc073141e1e7bc", 4096).unwrap();
 
     let sk: RsaPrivateKey = RsaPrivateKey::from_p_q(p, q, e).expect("Failed to generate private key");
-    let pk: RsaPublicKey = RsaPublicKey::from(&sk);
-    
-    blind(&mut thread_rng, &pk);
+    let pk: RsaPublicKey = RsaPublicKey::from(&sk);  
+    blind(encoded_message, &mut thread_rng, &pk);  
   }
 }
 
