@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crypto_bigint::Gcd;
 use rand::CryptoRng;
-use rsa::{BoxedUint, RsaPrivateKey, RsaPublicKey};
+use rsa::{BoxedUint, RsaPublicKey};
 use rsa::traits::PublicKeyParts;
 use sha2::Digest;
 
@@ -72,13 +72,12 @@ impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
 
 #[cfg(test)]
 mod tests {
-use std::result;
-
 use rsa::{RsaPublicKey, RsaPrivateKey};
 use crypto_bigint::BoxedUint;
-use rand::{CryptoRng, rng};
+use rand::rng;
 use sha3::Sha3_384;
-use crate::{key_pair::RsaBssaPublicKey, rsa_bssa::{DeterministicMsg, RandomizedMsg}};
+use crate::rsa_bssa::DeterministicMsg;
+use crate::key_pair::RsaBssaPublicKey;
 
 fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
     (0..hex.len())
