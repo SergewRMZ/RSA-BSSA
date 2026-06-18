@@ -1,11 +1,10 @@
 use sha2::Digest;
 use sha2::digest::OutputSizeUser;
+use crate::key_pair::RsaBssaError;
 use crate::mgf1::mgf1;
 use crate::mgf1::calculate_digest;
+
 #[derive(Debug)]
-pub enum EMSAPSSError {
-  EncodingError
-}
 pub struct EMSAPSS {
   em_bits: usize
 }
@@ -17,26 +16,23 @@ impl EMSAPSS {
     }
   }
 
-  pub fn encode<D: Digest>(&self, message: &[u8], salt: &[u8]) -> Result<Vec<u8>, EMSAPSSError>{
+  pub fn encode<D: Digest>(&self, message: &[u8], salt: &[u8]) -> Result<Vec<u8>, RsaBssaError>{
     let em_len = self.em_bits.div_ceil(8);
     let h_len: usize = <D as OutputSizeUser>::output_size();
     let s_len = salt.len();
 
     if em_len < h_len + s_len + 2 {
-      return Err(EMSAPSSError::EncodingError);
+      return Err(RsaBssaError::EncodingError);
     }
+    
     let mut em: Vec<u8> = vec![0u8; em_len];
 
-    let mut m_hash: Vec<u8> = vec![0u8; h_len];
-    calculate_digest::<D>(&[message], &mut m_hash);
+    let m_hash = calculate_digest::<D>(&[message]);
 
     let (db, m_prime_hash) = em.split_at_mut(em_len - h_len - 1);
     let m_prime_hash = &mut m_prime_hash[..h_len];
 
-    calculate_digest::<D>
-      (&[&[0u8; 8], &m_hash, &salt],
-      m_prime_hash
-    );
+    m_prime_hash.copy_from_slice(&calculate_digest::<D>(&[&[0u8; 8], &m_hash, &salt]));
 
     let db_len = db.len();
     db[db_len - s_len - 1] = 0x01;
