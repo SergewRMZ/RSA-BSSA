@@ -7,7 +7,7 @@ use rsa::traits::PublicKeyParts;
 use sha2::Digest;
 
 use crate::emsa_pss::EMSAPSS;
-use crate::rsa_bssa::{BlindResult, BlindedMessage, InverseBlindFactor, MessagePrepare, blind};
+use crate::rsa_bssa::{BlindResult, BlindedMessage, InverseBlindFactor, MessagePrepare, Randomizer, blind};
 
 #[derive(Debug)]
 pub enum RsaBssaError {
@@ -30,13 +30,12 @@ impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
         }
     }
 
-    pub fn blind<R: CryptoRng + ?Sized> (&self, rng: &mut R, msg: &[u8]) -> Result<BlindResult, RsaBssaError>{
+    pub fn blind<R: CryptoRng + ?Sized> (&self, rng: &mut R, msg: &[u8]) -> Result<BlindResult, RsaBssaError> {
         let modulus_bits = self.inner.n_bits_precision() as usize;
-        let preffix = M::prepare(rng);        
+        let preffix: Option<Randomizer> = M::prepare(rng);        
         let mut salt = [0u8; 48];
         rng.fill_bytes(&mut salt);
-        // let salt_string: String = salt.iter().map(|valor| format!("{:02x}", valor)).collect();
-        // println!("Salt generado (hex):", salt_string);
+
         let emsa = EMSAPSS::new(modulus_bits);
         let encoded: Vec<u8> =  match preffix {
             Some(randomizer) => {
@@ -54,9 +53,8 @@ impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
         let n = self.inner.n();
         let n_bits = n.bits_precision();
         let em_buint = BoxedUint::from_be_slice(&encoded, n_bits).map_err(|_| RsaBssaError::InternalError)?;
-        let one_buint = BoxedUint::one();
-
-        if em_buint.gcd(n) != one_buint {
+        
+        if em_buint.gcd(n) != BoxedUint::one() {
             return  Err(RsaBssaError::UnsoportedParameters);
         }
 
