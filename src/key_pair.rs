@@ -12,7 +12,7 @@ use crate::rsa_bssa::{BlindResult, BlindedMessage, InverseBlindFactor, MessagePr
 #[derive(Debug)]
 pub enum RsaBssaError {
   InternalError, 
-  UnsoportedParameters,
+  UnsupportedParameters,
   EncodingError
 }
 
@@ -55,7 +55,7 @@ impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
         let em_buint = BoxedUint::from_be_slice(&encoded, n_bits).map_err(|_| RsaBssaError::InternalError)?;
         
         if em_buint.gcd(n) != BoxedUint::one() {
-            return  Err(RsaBssaError::UnsoportedParameters);
+            return  Err(RsaBssaError::UnsupportedParameters);
         }
 
         let (blinded_msg, secret) = blind(em_buint, rng, &self.inner);

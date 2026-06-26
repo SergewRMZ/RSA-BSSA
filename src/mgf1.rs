@@ -31,3 +31,25 @@ pub fn calculate_digest<D: Digest> (parts: &[&[u8]]) -> Output<D> {
 //   }
 //   output.copy_from_slice(hasher.finalize().as_slice());
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::Sha384;
+    #[test]
+    fn test_mgf1() {
+        let mask_seed = b"Hola Mundo";
+        let mask_len = 335;
+        let mask = mgf1::<Sha384>(mask_seed, mask_len);
+        assert_eq!(mask.len(), mask_len);
+    }
+
+    #[test]
+    fn test_mgf1_deterministic() {
+        let mask_seed = b"Hola Mundo";
+        let mask_len = 335;
+        let mask1 = mgf1::<Sha384>(mask_seed, mask_len);
+        let mask2 = mgf1::<Sha384>(mask_seed, mask_len);
+        assert_eq!(mask1, mask2);
+    }
+}
