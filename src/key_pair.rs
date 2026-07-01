@@ -11,15 +11,15 @@ use crate::rsa_bssa::{BlindResult, BlindedMessage, InverseBlindFactor, MessagePr
 
 #[derive(Debug)]
 pub enum RsaBssaError {
-  InternalError, 
-  UnsupportedParameters,
-  EncodingError
+    InternalError, 
+    UnsupportedParameters,
+    EncodingError
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RsaBssaPublicKey<H: Digest, M: MessagePrepare> {
-  inner: RsaPublicKey,
-  _phantom: PhantomData<(H, M)>
+    inner: RsaPublicKey,
+    _phantom: PhantomData<(H, M)>
 }
 
 impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
@@ -70,7 +70,7 @@ impl <H: Digest, M: MessagePrepare> RsaBssaPublicKey<H, M> {
 
 #[cfg(test)]
 mod tests {
-use rsa::{RsaPublicKey, RsaPrivateKey};
+use rsa::RsaPublicKey;
 use crypto_bigint::BoxedUint;
 use rand::rng;
 use sha3::Sha3_384;
@@ -87,22 +87,20 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
 #[test]
     fn test_blind_message() {
         let mut thread_rng = rng();
-        let p = BoxedUint::from_be_hex("e1f4d7a34802e27c7392a3cea32a262a34dc3691bd87f3f310dc75673488930559c120fd0410194fb8a0da55bd0b81227e843fdca6692ae80e5a5d414116d4803fca7d8c30eaaae57e44a1816ebb5c5b0606c536246c7f11985d731684150b63c9a3ad9e41b04c0b5b27cb188a692c84696b742a80d3cd00ab891f2457443dadfeba6d6daf108602be26d7071803c67105a5426838e6889d77e8474b29244cefaf418e381b312048b457d73419213063c60ee7b0d81820165864fef93523c9635c22210956e53a8d96322493ffc58d845368e2416e078e5bcb5d2fd68ae6acfa54f9627c42e84a9d3f2774017e32ebca06308a12ecc290c7cd1156dcccfb2311", 2048).unwrap();
-        let q = BoxedUint::from_be_hex("c601a9caea66dc3835827b539db9df6f6f5ae77244692780cd334a006ab353c806426b60718c05245650821d39445d3ab591ed10a7339f15d83fe13f6a3dfb20b9452c6a9b42eaa62a68c970df3cadb2139f804ad8223d56108dfde30ba7d367e9b0a7a80c4fdba2fd9dde6661fc73fc2947569d2029f2870fc02d8325acf28c9afa19ecf962daa7916e21afad09eb62fe9f1cf91b77dc879b7974b490d3ebd2e95426057f35d0a3c9f45f79ac727ab81a519a8b9285932d9b2e5ccd347e59f3f32ad9ca359115e7da008ab7406707bd0e8e185a5ed8758b5ba266e8828f8d863ae133846304a2936ad7bc7c9803879d2fc4a28e69291d73dbd799f8bc238385", 2048).unwrap();
         let e = BoxedUint::from(65537u32);
-
-        let sk: RsaPrivateKey = RsaPrivateKey::from_p_q(p, q, e).expect("Failed to generate private key");
-        let pk: RsaPublicKey = RsaPublicKey::from(&sk);  
-
+        let n = BoxedUint::from_be_hex("aec4d69addc70b990ea66a5e70603b6fee27aafebd08f2d94cbe1250c556e047a928d635c3f45ee9b66d1bc628a03bac9b7c3f416fe20dabea8f3d7b4bbf7f963be335d2328d67e6c13ee4a8f955e05a3283720d3e1f139c38e43e0338ad058a9495c53377fc35be64d208f89b4aa721bf7f7d3fef837be2a80e0f8adf0bcd1eec5bb040443a2b2792fdca522a7472aed74f31a1ebe1eebc1f408660a0543dfe2a850f106a617ec6685573702eaaa21a5640a5dcaf9b74e397fa3af18a2f1b7c03ba91a6336158de420d63188ee143866ee415735d155b7c2d854d795b7bc236cffd71542df34234221a0413e142d8c61355cc44d45bda94204974557ac2704cd8b593f035a5724b1adf442e78c542cd4414fce6f1298182fb6d8e53cef1adfd2e90e1e4deec52999bdc6c29144e8d52a125232c8c6d75c706ea3cc06841c7bda33568c63a6c03817f722b50fcf898237d788a4400869e44d90a3020923dc646388abcc914315215fcd1bae11b1c751fd52443aac8f601087d8d42737c18a3fa11ecd4131ecae017ae0a14acfc4ef85b83c19fed33cfd1cd629da2c4c09e222b398e18d822f77bb378dea3cb360b605e5aa58b20edc29d000a66bd177c682a17e7eb12a63ef7c2e4183e0d898f3d6bf567ba8ae84f84f1d23bf8b8e261c3729e2fa6d07b832e07cddd1d14f55325c6f924267957121902dc19b3b32948bdead5", 4096).unwrap();
+        
+        let pk: RsaPublicKey = RsaPublicKey::new(n, e).expect("Error creating public key");
         let prepared_msg = hex_to_bytes("8417e699b219d583fb6216ae0c53ca0e9723442d02f1d1a34295527e7d929e8b8f3dc6fb8c4a02f4d6352edf0907822c1210a9b32f9bdda4c45a698c80023aa6b59f8cfec5fdbb36331372ebefedae7d").unwrap();
 
         let bssa_pk: RsaBssaPublicKey<Sha3_384, DeterministicMsg> = RsaBssaPublicKey::new(pk);
         let result = bssa_pk.blind(&mut thread_rng, &prepared_msg);
-
         if let Ok(blinded_result) = result {
             let blinded_msg_hex: String = blinded_result.blinded_msg.0.iter().map(|x|  format!("{:02x}", x)).collect();
-
+            let unblinder_factor: String = blinded_result.secret.0.iter().map(|x| format!("{:02x}", x)).collect();
+            println!("Unblinder factor: {}", unblinder_factor);
             println!("Mensaje cegado: {}", blinded_msg_hex);
+
         } 
     }
 }   
